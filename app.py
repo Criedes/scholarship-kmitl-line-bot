@@ -1,54 +1,96 @@
-from flask import Flask, request
+# from flask import Flask, request
+# import json
+# import requests
+# app = Flask(__name__)
+# @app.route('/')
+# def index():
+#   return "Hello World!"
+
+# # ส่วน callback สำหรับ Webhook
+# @app.route('/callback', methods=['POST'])
+# def callback():
+#   json_line = request.get_json()
+#   json_line = json.dumps(json_line)
+#   decoded = json.loads(json_line)
+#   user = decoded["events"][0]['replyToken']
+#   #id=[d['replyToken'] for d in user][0]
+#   #print(json_line)
+#   print("ผู้ใช้：",user)
+#   sendText(user,'งง') # ส่งข้อความ งง
+#   return '',200
+
+
+# def sendText(user, text):
+#   LINE_API = 'https://api.line.me/v2/bot/message/reply'
+#   Authorization = 'Bearer yjTtQCpheReO6VXNVdtDUHmJ8PMU8KOqRSm0Tc9QMb+eaEJD9aa3/tKPL5xAAyPzjfjEHEemUyEO2Pk0pH/0UzqrC7V4Rk7006XwG1FgBjtJSy6re1Ahwa+7wqs8EPI6JWx59n18GgLSGeee3mWBggdB04t89/1O/w1cDnyilFU=' # ใส่ ENTER_ACCESS_TOKEN เข้าไป
+#   headers = {
+#   'Content-Type': 'application/json; charset=UTF-8',
+#   'Authorization':Authorization
+#   }
+#   data = json.dumps({
+#   "replyToken":user,
+#   "messages":[{"type":"text","text":text}]})
+#   #print("ข้อมูล：",data)
+#   r = requests.post(LINE_API, headers=headers, data=data) # ส่งข้อมูล
+#   #print(r.text)
+
+
+# if __name__ == '__main__':
+#   app.run(debug=True)
+from flask import Flask, request, abort
 import json
 import requests
 
-# ตรง YOURSECRETKEY ต้องนำมาใส่เองครับจะกล่าวถึงในขั้นตอนต่อๆ ไป
-global LINE_API_KEY
-LINE_API_KEY = 'yjTtQCpheReO6VXNVdtDUHmJ8PMU8KOqRSm0Tc9QMb+eaEJD9aa3/tKPL5xAAyPzjfjEHEemUyEO2Pk0pH/0UzqrC7V4Rk7006XwG1FgBjtJSy6re1Ahwa+7wqs8EPI6JWx59n18GgLSGeee3mWBggdB04t89/1O/w1cDnyilFU='
+from linebot import (
+    LineBotApi, WebhookHandler
+)
+from linebot.exceptions import (
+    InvalidSignatureError
+)
+from linebot.models import (
+    MessageEvent, TextMessage, TextSendMessage,
+)
 
 app = Flask(__name__)
- 
+
+line_bot_api = LineBotApi('yjTtQCpheReO6VXNVdtDUHmJ8PMU8KOqRSm0Tc9QMb+eaEJD9aa3/tKPL5xAAyPzjfjEHEemUyEO2Pk0pH/0UzqrC7V4Rk7006XwG1FgBjtJSy6re1Ahwa+7wqs8EPI6JWx59n18GgLSGeee3mWBggdB04t89/1O/w1cDnyilFU=')
+handler = WebhookHandler('a1bfdb3d70e30a51c9db71a4f1aacad7')
+
 @app.route('/')
 def index():
-    return 'This is chatbot server.'
-@app.route('/bot', methods=['POST'])
+   return "Hello World!"
 
-def bot():
-    # ข้อความที่ต้องการส่งกลับ
-    replyStack = list()
-   
-    # ข้อความที่ได้รับมา
-    msg_in_json = request.get_json()
-    msg_in_string = json.dumps(msg_in_json)
-    
-    # Token สำหรับตอบกลับ (จำเป็นต้องใช้ในการตอบกลับ)
-    replyToken = msg_in_json["events"][0]['replyToken']
+@app.route('/callback', methods=['POST'])
+def callback():
+    # get X-Line-Signature header value
+    signature = request.headers['X-Line-Signature']
 
-    # ทดลอง Echo ข้อความกลับไปในรูปแบบที่ส่งไป-มา (แบบ json)
-    replyStack.append(msg_in_string)
-    reply(replyToken, replyStack[:5])
-    
-    return 'OK',200
- 
-def reply(replyToken, textList):
-    # Method สำหรับตอบกลับข้อความประเภท text กลับครับ เขียนแบบนี้เลยก็ได้ครับ
-    LINE_API = 'https://api.line.me/v2/bot/message/reply'
-    headers = {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': LINE_API_KEY
-    }
-    msgs = []
-    for text in textList:
-        msgs.append({
-            "type":"text",
-            "text":text
-        })
-    data = json.dumps({
-        "replyToken":replyToken,
-        "messages":msgs
-    })
-    requests.post(LINE_API, headers=headers, data=data)
-    return
+    # get request body as text
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
 
-if __name__ == '__main__':
+    # handle webhook body
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+
+    return '', 200
+
+""
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    event_hand = event.reply_token
+    event_message = event.message.text
+    if(event_message == 'สวัสดี'):
+        line_bot_api.reply_message(
+            event_hand,
+            TextSendMessage(text='สวัสดีครับนักศึกษา'))
+    else:
+        line_bot_api.reply_message(
+            event_hand,
+            TextSendMessage(text='ขออภัยไม่มีคำสั่งนี้ในฐานข้อมูล'))
+
+
+if __name__ == "__main__":
     app.run()
